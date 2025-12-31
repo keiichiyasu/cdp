@@ -92,7 +92,7 @@ class MetadataFetcher:
             # ここでは musicbrainzngs.get_image_list を使う手もあるが、URL構築の方が軽量
             # data = musicbrainzngs.get_image_list(release_id)
             # シンプルにfront画像をリクエストするURL
-            return f"http://coverartarchive.org/release/{release_id}/front"
+            return f"https://coverartarchive.org/release/{release_id}/front"
         except Exception as e:
             self.logger.warning(f"Could not fetch cover art URL: {e}")
             return None

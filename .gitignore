@@ -19,3 +19,4 @@ vlc_stderr.log
 
 # Local config
 *.user
+.env
