@@ -1,0 +1,8 @@
+customtkinter
+musicbrainzngs
+python-vlc
+numpy
+pyobjc-framework-Cocoa
+discid
+requests
+pillow

@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+env/
+venv/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+cdp.log
+vlc_debug.log
+vlc_stderr.log
+
+# Local config
+*.user
