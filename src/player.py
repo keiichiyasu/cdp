@@ -10,11 +10,13 @@ class CDPlayer:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.process = None
-        self.vlc_path = "/Applications/VLC.app/Contents/MacOS/VLC"
+        # Linux用のVLCパスに変更
+        self.vlc_path = "vlc" 
         self.current_track_index = 1
         
-        if not os.path.exists(self.vlc_path):
-            self.logger.error(f"VLC application not found at {self.vlc_path}")
+        # 'which' コマンドでVLCの存在を確認
+        if subprocess.run(["which", self.vlc_path], capture_output=True).returncode != 0:
+            self.logger.error(f"VLC command not found. Please install VLC media player.")
 
     def _send_command(self, command):
         if self.process and self.process.poll() is None:
@@ -24,43 +26,31 @@ class CDPlayer:
             except Exception as e:
                 self.logger.error(f"Failed to send command to VLC: {e}")
 
-    def play_cd(self, drive_path=None, track_num=1):
+    def play_cd(self, drive_path="/dev/cdrom", track_num=1):
         """
-        macOSのマウントポイント内のファイルを再生する。
-        drive_path: /Volumes/Love SQ などのマウントパス。
+        Linux環境でCDを再生する。
+        drive_path: /dev/cdrom などのデバイスパス。
         """
         if self.process:
             self.stop()
             time.sleep(0.5)
 
-        if not drive_path or not os.path.exists(drive_path):
-            self.logger.error(f"Drive path not found: {drive_path}")
+        if not os.path.exists(drive_path):
+            self.logger.error(f"CD device not found at: {drive_path}")
             return
 
-        # マウントポイント内のオーディオファイルを探す
-        # macOSでは通常 .aiff ファイルとして見える
-        p = Path(drive_path)
-        audio_files = sorted([str(f) for f in p.glob("*.aiff")])
-        if not audio_files:
-            audio_files = sorted([str(f) for f in p.glob("*.wav")])
-            
-        if not audio_files:
-            self.logger.error(f"No audio files found in {drive_path}")
-            # フォールバックとして従来のcdda://も一応試すが期待薄
-            return
-
-        self.logger.info(f"Found {len(audio_files)} tracks. Starting playback of track {track_num}...")
+        self.logger.info(f"Starting playback of track {track_num} from {drive_path}...")
         
-        # VLCを起動し、全トラックをプレイリストに追加
-        # GUIを表示させてデバッグする
+        # VLCをcddaプロトコルで起動
+        media_path = f"cdda://{drive_path}"
+        
         cmd = [
             self.vlc_path,
-            "-I", "macosx", # 標準のmacOSインターフェースを使用
-            # "--rc-fake-tty", # macosxインターフェースと競合する可能性があるので一旦外すか、rcを追加で指定する
-            "--extraintf", "rc", # 追加インターフェースとしてRCを有効化
+            "-I", "dummy", # GUIなしで起動
+            "--extraintf", "rc", # RCインターフェースを有効化
             "--rc-fake-tty",
-            "--aout", "coreaudio",
-        ] + audio_files # 全ファイルを引数に渡す
+            media_path
+        ]
         
         try:
             self.process = subprocess.Popen(
@@ -70,11 +60,11 @@ class CDPlayer:
                 stderr=subprocess.DEVNULL
             )
             
-            time.sleep(2.0) # GUI起動待ち
+            time.sleep(2.0) # 起動待ち
             self._send_command("volume 256")
-            # 指定トラックへ移動 (gotoコマンド)
             if track_num > 1:
-                self._send_command(f"goto {track_num-1}")
+                # RCインターフェースでは seek <track_number> (1-indexed)
+                self._send_command(f"seek {track_num}")
                 
         except Exception as e:
             self.logger.error(f"Failed to start VLC: {e}")
@@ -108,4 +98,5 @@ class CDPlayer:
     
     def eject_disc(self):
         self.stop()
-        subprocess.run(["drutil", "eject"], check=False)
+        # Linux用のejectコマンド
+        subprocess.run(["eject"], check=False)

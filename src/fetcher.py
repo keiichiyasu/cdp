@@ -10,14 +10,15 @@ class MetadataFetcher:
     def get_disc_id(self, device_path=None):
         """
         指定されたデバイスパスからDiscIDを読み取る。
-        macOSの場合、device_pathは通常指定不要（discidが自動検出）。
-        特定のドライブを指定する場合は discid.read(device_path) を使う。
+        Linuxでは /dev/cdrom などが渡されることを期待。
         """
         try:
-            # macOSではデフォルトデバイスの読み取りを試みる
-            # device_pathが渡された場合でも、libdiscidの仕様に合わせて処理が必要
-            # discid.read() は通常、最初のドライブを読みに行く
-            disc = discid.read()
+            if device_path:
+                self.logger.info(f"Reading disc ID from device: {device_path}")
+                disc = discid.read(device_path)
+            else:
+                self.logger.info("Reading disc ID from default device.")
+                disc = discid.read()
             return disc.id
         except discid.DiscError as e:
             self.logger.error(f"Error reading disc ID: {e}")

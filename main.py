@@ -9,7 +9,7 @@ def main():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler("cdp.log", mode='w', encoding='utf-8')
+            logging.FileHandler("cdp.md", mode='w', encoding='utf-8')
         ]
     )
     
