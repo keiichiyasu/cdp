@@ -5,7 +5,7 @@ import requests
 from io import BytesIO
 import random # ビジュアライザー用ダミーデータ
 
-from src.detector import CDDetector
+from src.detector import get_detector
 from src.fetcher import MetadataFetcher
 from src.player import CDPlayer
 
@@ -46,7 +46,7 @@ class CDPApp(ctk.CTk):
         # モジュール初期化
         self.player = CDPlayer()
         self.fetcher = MetadataFetcher()
-        self.detector = CDDetector() 
+        self.detector = get_detector()
         
         # UI構築
         self._setup_ui()
