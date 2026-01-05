@@ -1,6 +1,6 @@
 # cdp - CD Auto-Player & Metadata Display
 
-`cdp` is a Python-based CD player for macOS that automatically detects inserted audio CDs, fetches album metadata from MusicBrainz, and starts playback in a fullscreen interface.
+`cdp` is a Python-based CD player that automatically detects inserted audio CDs, fetches album metadata from MusicBrainz, and starts playback in a fullscreen interface. It supports both macOS and Raspberry Pi/Linux platforms.
 
 ![CDP Screenshot](https://via.placeholder.com/800x450?text=CDP+Interface)
 
@@ -15,10 +15,10 @@
 
 ## Requirements
 
-*   **macOS**: Tested on macOS (Darwin).
-*   **VLC Media Player**: Must be installed in `/Applications/VLC.app`.
+*   **Operating System**:
+    *   **macOS**: Tested on macOS (Darwin). VLC Media Player must be installed in `/Applications/VLC.app`. `libdiscid` installed via Homebrew.
+    *   **Raspberry Pi OS / Linux**: Tested on Raspberry Pi OS. VLC Media Player must be installed and accessible in the system's PATH. `libdiscid` installed via package manager (e.g., `sudo apt-get install libdiscid-dev vlc`).
 *   **Python**: 3.10 or later.
-*   **External Libraries**: `libdiscid` (installed via Homebrew).
 
 ## Quick Start
 
