@@ -1,69 +1,117 @@
 import os
+import sys
 import time
 import logging
 from pathlib import Path
+import glob
 
 class CDDetector:
-    """
-    /Volumes ディレクトリを監視して、新しいボリュームのマウントを検知するクラス。
-    ポーリング方式を採用し、確実に検知を行う。
-    """
-    
+    """A base class for CD detection."""
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.base_path = Path("/Volumes")
-        self.known_volumes = self._get_current_volumes()
         self.callback = None
         self._running = False
 
-    def _get_current_volumes(self):
-        if not self.base_path.exists():
-            return set()
-        # ドットファイルなどは除外
-        return {p.name for p in self.base_path.iterdir() if not p.name.startswith('.')}
-
     def start_monitoring(self, callback):
-        """
-        UI側から定期的に呼ばれることを想定するか、
-        あるいは内部でスレッドを持つかだが、
-        今回はUIのメインループから check() を呼ぶ方式に合わせるため、
-        ここではコールバックの登録のみ行う。
-        """
         self.callback = callback
-        self.known_volumes = self._get_current_volumes()
         self._running = True
-        self.logger.info("CD Detector (Polling) ready.")
 
     def check(self):
-        """
-        定期的に呼び出すメソッド。
-        差分があればコールバックを実行する。
-        """
+        raise NotImplementedError
+
+    def stop_monitoring(self):
+        self._running = False
+
+class CDDetectorMac(CDDetector):
+    """
+    macOSでCDドライブの状態を監視するクラス。
+    /Volumes ディレクトリの変更をポーリングして検知する。
+    """
+    def __init__(self):
+        super().__init__()
+        self.volumes_path = Path("/Volumes")
+        self.previous_volumes = self._get_current_volumes()
+        self.logger.info("CD Detector (macOS Polling) ready.")
+
+    def _get_current_volumes(self):
+        """現在の/Volumes内のディレクトリ一覧を取得する"""
+        # "Macintosh HD"のようなシステムボリュームは除外
+        return set(p.name for p in self.volumes_path.iterdir() if p.is_dir() and p.name != "Macintosh HD")
+
+    def start_monitoring(self, callback):
+        super().start_monitoring(callback)
+        self.previous_volumes = self._get_current_volumes()
+
+    def check(self):
         if not self._running:
             return
 
         current_volumes = self._get_current_volumes()
+        new_volumes = current_volumes - self.previous_volumes
+        removed_volumes = self.previous_volumes - current_volumes
+
+        for volume_name in new_volumes:
+            # TODO: これが本当にオーディオCDかどうかのチェックを追加する
+            self.logger.info(f"CD detected: {volume_name}")
+            if self.callback:
+                self.callback("mount", str(self.volumes_path / volume_name))
+
+        for volume_name in removed_volumes:
+            self.logger.info(f"CD removed: {volume_name}")
+            if self.callback:
+                self.callback("unmount", str(self.volumes_path / volume_name))
+
+        self.previous_volumes = current_volumes
+
+class CDDetectorLinux(CDDetector):
+    """
+    Linux環境でCD-ROMドライブの状態を監視するクラス。
+    /dev/cdrom の存在をポーリングして検知する。
+    """
+    def __init__(self):
+        super().__init__()
+        self.cdrom_path = Path("/dev/cdrom")
+        self.cd_was_present = self._is_cd_present()
+        self.logger.info("CD Detector (Linux Polling) ready.")
+
+    def _is_cd_present(self):
+        """ /dev/cdrom が存在し、それがシンボリックリンクであればCDありと判断 """
+        return self.cdrom_path.is_symlink() or self.cdrom_path.exists()
+
+    def start_monitoring(self, callback):
+        super().start_monitoring(callback)
+        self.cd_was_present = self._is_cd_present()
+
+    def check(self):
+        """
+        定期的に呼び出すメソッド。
+        CDの有無に変化があればコールバックを実行する。
+        """
+        if not self._running:
+            return
+
+        cd_is_present = self._is_cd_present()
         
-        # 新しく追加されたボリューム (マウント)
-        added = current_volumes - self.known_volumes
-        # 削除されたボリューム (アンマウント)
-        removed = self.known_volumes - current_volumes
-
-        if added:
-            for vol_name in added:
-                vol_path = self.base_path / vol_name
-                self.logger.info(f"Volume detected: {vol_path}")
-                if self.callback:
-                    self.callback("mount", str(vol_path))
+        if cd_is_present and not self.cd_was_present:
+            # CDが挿入された
+            self.logger.info(f"CD detected: {self.cdrom_path}")
+            if self.callback:
+                # Linuxではマウントポイントを直接渡す代わりにデバイスパスを渡す
+                self.callback("mount", str(self.cdrom_path))
         
-        if removed:
-            for vol_name in removed:
-                vol_path = self.base_path / vol_name
-                self.logger.info(f"Volume removed: {vol_path}")
-                if self.callback:
-                    self.callback("unmount", str(vol_path))
+        elif not cd_is_present and self.cd_was_present:
+            # CDが取り出された
+            self.logger.info(f"CD removed: {self.cdrom_path}")
+            if self.callback:
+                self.callback("unmount", str(self.cdrom_path))
 
-        self.known_volumes = current_volumes
+        self.cd_was_present = cd_is_present
 
-    def stop_monitoring(self):
-        self._running = False
+def get_detector():
+    """OSに応じて適切なCDDetectorのインスタンスを返すファクトリ関数"""
+    if sys.platform == "darwin":
+        return CDDetectorMac()
+    elif sys.platform.startswith("linux"):
+        return CDDetectorLinux()
+    else:
+        raise NotImplementedError(f"Unsupported platform: {sys.platform}")

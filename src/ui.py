@@ -5,7 +5,7 @@ import requests
 from io import BytesIO
 import random # ビジュアライザー用ダミーデータ
 
-from src.detector import CDDetector
+from src.detector import get_detector
 from src.fetcher import MetadataFetcher
 from src.player import CDPlayer
 
@@ -46,7 +46,7 @@ class CDPApp(ctk.CTk):
         # モジュール初期化
         self.player = CDPlayer()
         self.fetcher = MetadataFetcher()
-        self.detector = CDDetector() 
+        self.detector = get_detector()
         
         # UI構築
         self._setup_ui()
@@ -62,6 +62,7 @@ class CDPApp(ctk.CTk):
         
         self.logger.info("Application starting...")
 
+        self._running = True
         # CD検知開始
         self.detector.start_monitoring(self._on_cd_event)
         self.after(1000, self._poll_detector)
@@ -165,6 +166,8 @@ class CDPApp(ctk.CTk):
 
     def _poll_detector(self):
         """定期的にDetectorをチェック"""
+        if not self._running:
+            return
         self.detector.check()
         self.after(1000, self._poll_detector)
 
@@ -199,6 +202,8 @@ class CDPApp(ctk.CTk):
         self.player.play_cd(drive_path=path)
 
     def _update_loop(self):
+        if not self._running:
+            return
         # ビジュアライザーの更新
         self.spectrum_canvas.delete("all")
         w = self.spectrum_canvas.winfo_width()
@@ -220,5 +225,6 @@ class CDPApp(ctk.CTk):
         self.after(50, self._update_loop)
 
     def close_app(self, event=None):
+        self._running = False
         self.player.stop()
         self.destroy()
