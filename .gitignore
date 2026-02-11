@@ -21,3 +21,4 @@ vlc_stderr.log
 *.user
 .env
 summary.md
+modification_log.md
