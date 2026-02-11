@@ -1,7 +1,7 @@
 import time
 import logging
+import sys
 from src.detector import CDDetector
-from PyObjCTools import AppHelper
 
 # ログ設定
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -11,12 +11,13 @@ def on_cd_event(action, path):
 
 def main():
     print("Starting CD Detector Test... Press Ctrl+C to stop.")
-    detector = CDDetector.alloc().init()
+    detector = CDDetector()
     detector.start_monitoring(on_cd_event)
     
     try:
-        # コンソールアプリとしてRunLoopを開始
-        AppHelper.runConsoleEventLoop()
+        while True:
+            detector.check()
+            time.sleep(1)
     except KeyboardInterrupt:
         print("\nStopping...")
         detector.stop_monitoring()
