@@ -22,3 +22,6 @@ vlc_stderr.log
 .env
 summary.md
 modification_log.md
+
+# Brainstorming session artifacts
+.superpowers/
