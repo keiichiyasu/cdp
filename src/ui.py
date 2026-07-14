@@ -32,6 +32,10 @@ class CDPApp(ctk.CTk):
         self.current_metadata = None
         self.show_visualizer = show_visualizer
         
+        # 透明な1x1画像（画像クリア時の警告/エラー回避用）
+        self.empty_image = ctk.CTkImage(Image.new("RGBA", (1, 1), (0, 0, 0, 0)), size=(1, 1))
+        self.current_image = None
+        
         self._setup_ui()
         self.logger = logging.getLogger("CDP")
 
@@ -134,8 +138,16 @@ class CDPApp(ctk.CTk):
         if action == "mount": self.after(2000, lambda: self._handle_disc_insertion(path))
         elif action == "unmount":
             self.info_label.configure(text="No Disc")
-            self.art_label.configure(image=None, text="Waiting for CD...", font=("Helvetica", 48, "bold"))
+            self._clear_art()
+
+    def _clear_art(self):
+        """Safely clear the artwork label and reset to default state."""
+        try:
+            self.current_image = None
             self.current_metadata = None
+            self.art_label.configure(image=self.empty_image, text="Waiting for CD...", font=("Helvetica", 48, "bold"))
+        except Exception as e:
+            self.logger.warning(f"Failed to clear art: {e}")
 
     def _handle_disc_insertion(self, path):
         self.info_label.configure(text="💿 Loading Metadata...")
@@ -168,8 +180,8 @@ class CDPApp(ctk.CTk):
                         self.after(0, lambda: self._show_image(pil_img))
                     except Exception as e:
                         self.logger.warning(f"Artwork download failed: {e}")
-                        # 画像取得失敗時は、確実に image=None をセットする
-                        self.after(0, lambda: self.art_label.configure(image=None, text="No Artwork Available", font=("Helvetica", 48, "bold")))
+                        # 画像取得失敗時は、確実にクリアする
+                        self.after(0, self._clear_art)
             except Exception as e:
                 self.logger.error(f"Error in insertion task: {e}")
                 self.after(0, lambda: self.info_label.configure(text=f"Error: {str(e)}"))
@@ -177,16 +189,20 @@ class CDPApp(ctk.CTk):
 
     def _show_image(self, pil_img):
         try:
-            self.art_label.configure(image=None)
+            # 古いイメージを破棄
+            self.current_image = None
+            
             screen_h = self.winfo_screenheight()
             # TV向けに画像も少し大きく (画面高の70%)
             target_h = int(screen_h * 0.7)
             ratio = target_h / pil_img.height
             target_w = int(pil_img.width * ratio)
             pil_resized = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
+            
             self.current_image = ctk.CTkImage(light_image=pil_resized, dark_image=pil_resized, size=(target_w, target_h))
             self.art_label.configure(image=self.current_image, text="")
-        except: pass
+        except Exception as e:
+            self.logger.error(f"Failed to show image: {e}")
 
     def _toggle_play(self):
         if self.player.is_playing(): self.player.pause()
@@ -196,8 +212,7 @@ class CDPApp(ctk.CTk):
         self.player.eject_disc()
         self.info_label.configure(text="Ejected")
         # アートワークをクリア
-        self.art_label.configure(image=None, text="Waiting for CD...", font=("Helvetica", 48, "bold"))
-        self.current_metadata = None
+        self._clear_art()
 
     def close_app(self, event=None):
         self.player.stop()
