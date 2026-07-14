@@ -51,3 +51,38 @@ def test_cdparanoia_stall_raises(monkeypatch):
     with pytest.raises(SourceStallError):
         b"".join(src.open(1))
     src.close()
+
+
+import soundfile as sf
+import struct
+
+from src.audio.sources import AiffFileSource, TrackSourceError
+
+
+def make_aiff(path, frames=1000):
+    data = struct.pack("<h", 1000) * (frames * 2)  # int16 ステレオ
+    with sf.SoundFile(str(path), "w", samplerate=44100, channels=2,
+                      subtype="PCM_16", format="AIFF") as f:
+        f.buffer_write(data, dtype="int16")
+
+
+def test_aiff_list_tracks_numeric_order(tmp_path):
+    make_aiff(tmp_path / "1 Audio Track.aiff")
+    make_aiff(tmp_path / "2 Audio Track.aiff")
+    make_aiff(tmp_path / "10 Audio Track.aiff")
+    src = AiffFileSource(str(tmp_path))
+    nums = [t.number for t in src.list_tracks()]
+    assert nums == [1, 2, 10]  # 辞書順(1,10,2)ではなく数値順
+
+
+def test_aiff_open_reads_pcm(tmp_path):
+    make_aiff(tmp_path / "1 Audio Track.aiff", frames=1000)
+    src = AiffFileSource(str(tmp_path))
+    data = b"".join(src.open(1))
+    src.close()
+    assert len(data) == 1000 * 4  # 1000 フレーム * 4 バイト
+
+
+def test_aiff_empty_dir_raises(tmp_path):
+    with pytest.raises(TrackSourceError):
+        AiffFileSource(str(tmp_path)).list_tracks()

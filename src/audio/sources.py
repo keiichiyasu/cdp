@@ -90,3 +90,62 @@ class CdparanoiaSource:
             except subprocess.TimeoutExpired:
                 self._proc.kill()
             self._proc = None
+
+
+_AIFF_NUM = re.compile(r"^(\d+)")
+
+
+class AiffFileSource:
+    """macOS: マウントされたオーディオ CD の .aiff ファイルを読む。"""
+
+    def __init__(self, mount_path: str):
+        self.mount_path = Path(mount_path)
+        self._file = None
+
+    def _paths(self) -> dict[int, Path]:
+        found = {}
+        for p in self.mount_path.glob("*.aiff"):
+            m = _AIFF_NUM.match(p.name)
+            if m:
+                found[int(m.group(1))] = p
+        return found
+
+    def list_tracks(self) -> list[TrackRef]:
+        import soundfile as sf
+        paths = self._paths()
+        if not paths:
+            raise TrackSourceError(f"{self.mount_path} に .aiff がありません")
+        tracks = []
+        for num in sorted(paths):
+            with sf.SoundFile(str(paths[num])) as f:
+                tracks.append(TrackRef(number=num,
+                                       duration=len(f) / f.samplerate))
+        return tracks
+
+    def open(self, track_no: int) -> Iterator[bytes]:
+        import soundfile as sf
+        self.close()
+        paths = self._paths()
+        if track_no not in paths:
+            raise TrackSourceError(f"トラック {track_no} がありません")
+        self._file = sf.SoundFile(str(paths[track_no]))
+        return self._read_chunks(self._file)
+
+    def _read_chunks(self, f) -> Iterator[bytes]:
+        while True:
+            buf = f.buffer_read(CHUNK_FRAMES, dtype="int16")
+            if len(buf) == 0:
+                return
+            yield bytes(buf)
+
+    def close(self) -> None:
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+
+
+def create_source(device: str):
+    """OS に応じた TrackSource を返す。device は DiscInserted.device と同じ値。"""
+    if sys.platform == "darwin":
+        return AiffFileSource(device)
+    return CdparanoiaSource(device)
