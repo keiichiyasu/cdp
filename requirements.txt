@@ -1,6 +1,6 @@
-customtkinter
-musicbrainzngs
-numpy
 discid
+musicbrainzngs
 requests
 pillow
+sounddevice
+soundfile
