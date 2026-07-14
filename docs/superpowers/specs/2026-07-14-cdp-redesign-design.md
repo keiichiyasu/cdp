@@ -109,7 +109,7 @@ tests/                # pytest
 ### TrackSource(トラック供給)
 
 - インターフェイス: `open(track_no)` → PCM チャンクのイテレータ、`close()`
-- **Linux — CdparanoiaSource**: `cdparanoia -R <track_no> -` を子プロセス起動し stdout から raw PCM(44.1k/16bit/2ch/LE)を読む。トラック切替 = プロセス terminate + 再起動
+- **Linux — CdparanoiaSource**: `cdparanoia -r <track_no> -` を子プロセス起動し stdout から raw PCM(44.1k/16bit/2ch/LE)を読む(`-r` = リトルエンディアン raw 出力)。トラック切替 = プロセス terminate + 再起動
 - **macOS — AiffFileSource**: マウントされた .aiff を soundfile で読み PCM を返す
 
 ### MetadataService
