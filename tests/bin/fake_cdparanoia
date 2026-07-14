@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+"""テスト用の cdparanoia もどき。-Q なら TOC を stderr へ、それ以外は PCM を stdout へ。"""
+import os
+import sys
+import time
+
+if "-Q" in sys.argv:
+    sys.stderr.write(
+        "  1.    16831 [03:44.31]        0 [00:00.00]    no   no  2\n")
+    sys.exit(0)
+
+if os.environ.get("FAKE_CDPARANOIA_STALL"):
+    time.sleep(5)
+    sys.exit(0)
+
+sys.stdout.buffer.write(b"\x01\x02" * 4096)
+sys.stdout.buffer.flush()
