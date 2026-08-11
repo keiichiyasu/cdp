@@ -12,6 +12,9 @@ from src.core.events import AppState, ViewState
 logger = logging.getLogger(__name__)
 
 POLL_MS = 200
+# 起動直後はデスクトップ環境側がまだ整っておらず、1 回きりの要求では
+# 取りこぼす。自動起動時は特に競合しやすいので数回に分けて試みる。
+WINDOW_RETRY_MS = (500, 2000, 5000)
 BG = "#000000"
 FG_MAIN = "#e6e6e6"
 FG_SUB = "#8c8c8c"
@@ -42,6 +45,21 @@ def format_artist_line(vs: ViewState) -> str:
     return line
 
 
+def ensure_fullscreen(root) -> bool:
+    """全画面が適用済みかを確かめ、外れていれば要求し直す。
+
+    実機(Raspberry Pi 4 / labwc + XWayland)では、起動時の全画面要求が
+    通らないことが間欠的にある。View は place() だけで組んでいて子要素が
+    親のサイズ要求に寄与しないため、外れたままだとウィンドウが最小サイズに
+    潰れてしまう。適用済みなら True。
+    """
+    if root.attributes("-fullscreen"):
+        return True
+    logger.warning("全画面が適用されていません。要求し直します")
+    root.attributes("-fullscreen", True)
+    return False
+
+
 class View:
     def __init__(self, root: tk.Tk, controller):
         self._root = root
@@ -52,6 +70,9 @@ class View:
         self._on_quit = None
 
         root.configure(bg=BG)
+        # 全画面要求が通らなかった場合の保険。place() で組んでいるため
+        # geometry を明示しないと最小サイズに潰れる。
+        root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")
         root.attributes("-fullscreen", True)
         root.config(cursor="none")
 
@@ -74,7 +95,21 @@ class View:
         root.bind("p", lambda e: controller.prev_track())
         root.bind("e", lambda e: controller.eject())
 
+        # 全画面とキーボードフォーカスを自分から取りに行く。labwc + XWayland
+        # では、開いたウィンドウが自動でフォーカスを得るとは限らず(キー操作が
+        # 一切届かなくなる)、全画面要求も間欠的に通らない。ウィンドウが map
+        # される前に呼んでも効かないため、遅延させたうえで数回試す。
+        for delay in WINDOW_RETRY_MS:
+            root.after(delay, self._claim_window)
+
         root.after(POLL_MS, self._tick)
+
+    def _claim_window(self) -> None:
+        try:
+            ensure_fullscreen(self._root)
+            self._root.focus_force()
+        except tk.TclError:
+            logger.debug("ウィンドウ状態の確保に失敗(未表示?)")
 
     def set_on_quit(self, fn) -> None:
         self._on_quit = fn
