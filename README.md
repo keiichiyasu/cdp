@@ -1,46 +1,62 @@
-# cdp - CD Auto-Player & Metadata Display
+# cdp - CD Auto-Player for Raspberry Pi
 
-`cdp` is a Python-based CD player for macOS that automatically detects inserted audio CDs, fetches album metadata from MusicBrainz, and starts playback in a fullscreen interface optimized for HD TVs.
+`cdp` は Raspberry Pi を「TV 常設の操作不要 CD プレイヤー機」にするアプリケーションです。
+CD を入れると自動で再生が始まり、アルバムアートを全画面表示します。取り出せば止まります。
 
-## Features
+- **ターゲット**: Raspberry Pi + HDMI 接続の TV(音声も HDMI)
+- **開発環境**: macOS でも動作します(オーディオ CD の .aiff マウントを利用)
 
-*   **Auto Detection**: Background monitoring of CD insertion/removal.
-*   **Metadata Fetching**: Retrieves high-quality album art and track lists from MusicBrainz.
-*   **TV-Optimized UI**: Ultra-large fonts and buttons designed for 1080p/720p screens.
-*   **Robust Playback**: Uses VLC Media Player with `cdda://` protocol for stability.
-*   **Multi-threaded Architecture**: No UI freezing during network or disc operations.
-*   **Spectrum Visualizer (Optional)**: Real-time FFT-based frequency analysis.
+## 特徴
 
-## Requirements
+- **操作不要**: 挿入 → 自動再生、取り出し → 停止。音量は TV 側で調整
+- **VLC 非依存**: cdparanoia + PortAudio による自前 PCM パイプライン。
+  再生位置・トラック番号をアプリ自身が管理
+- **即時再生**: メタデータ取得を待たずに再生開始(取得は並行実行)
+- **オフライン耐性**: メタデータとカバーアートを `~/.cache/cdp/` にキャッシュ。
+  同じ CD の再挿入はネット不要
+- **アートが主役の UI**: 全画面にアルバムアート+控えめな曲名表示。
+  アート未取得時は共通プレースホルダー
 
-*   **macOS**: 14.0 (Sonoma) or later.
-*   **VLC Media Player**: Installed in `/Applications/VLC.app`.
-*   **Python**: 3.10 or later.
-*   **External Libraries**: `libdiscid` (via Homebrew: `brew install libdiscid`).
+## セットアップ
 
-## Usage
+[INSTALL.md](INSTALL.md) を参照。
 
-Run the application:
+## 起動
+
 ```bash
-python main.py [options]
+python main.py
 ```
 
-### Options:
-*   `--visualizer`: Enable the real-time FFT spectrum visualizer (experimental).
-*   `--test`: Run in test mode with a 20Hz-20kHz swept-sine signal to verify audio/visual sync.
+終了は Esc キー。開発用の隠しキー: Space(一時停止/再開)、n / p(曲送り/戻し)、e(イジェクト)。
+
+## Raspberry Pi 受け入れチェックリスト
+
+リリース前に実機で確認する:
+
+- [ ] 起動すると待機画面(「CD を入れてください」)になる
+- [ ] オーディオ CD 挿入から概ね 15 秒以内に音が出る
+- [ ] ネット接続時: アルバムアートと曲名が表示される
+- [ ] 同じ CD をネット切断状態で再挿入してもアート・曲名が出る(キャッシュ)
+- [ ] 未知の CD(メタデータなし)でもプレースホルダー+「トラック N」で再生される
+- [ ] データ CD / DVD で「オーディオ CD ではありません」と表示され、再生しない
+- [ ] 再生中にドライブのボタンで取り出すと待機画面に戻る(クラッシュしない)
+- [ ] 最終トラック終了後に「再生終了」表示になる
+
+## 設計資料
+
+- 設計書: `docs/superpowers/specs/2026-07-14-cdp-redesign-design.md`
 
 ## Changelog
 
-### v0.3.0 (2026-02-11)
-*   **UI Redesign**: Scaled up all UI elements (2x) for better visibility on HD televisions.
-*   **Metadata Robustness**: Added fallback search by album title if DiscID lookup fails.
-*   **Bug Fixes**: Fixed `TclError` during rapid disc swapping and improved image reference handling.
-*   **Visualizer**: Introduced optional FFT-based spectrum with rainbow gradient.
+### v0.4.0 (2026-07-14)
+- 全面再設計。VLC を廃止し cdparanoia + PortAudio の自前 PCM パイプラインに変更
+- 状態機械ベースのコアに刷新(ハードウェアなしでテスト可能、pytest 導入)
+- Raspberry Pi を第一級ターゲットに(ioctl による正確なディスク検知)
+- メタデータのローカルキャッシュ(オフライン再挿入対応)
+- UI を「アートが主役」レイアウトに刷新。ビジュアライザーとテストモードを廃止
 
-### v0.2.0
-*   Implemented background threading for disc monitoring and metadata fetching.
-*   Switched to `cdda://` and raw device access for stable playback.
-*   Added focus management to maintain fullscreen mode.
+### v0.3.0 以前
+- git 履歴を参照
 
 ## License
 MIT

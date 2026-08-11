@@ -1,64 +1,35 @@
-# Installation Guide
+# インストール手順
 
-## Prerequisites
+## Raspberry Pi (Raspberry Pi OS)
 
-Before running `cdp`, ensure you have the following installed on your macOS system.
+```bash
+sudo apt-get update
+sudo apt-get install -y cdparanoia libdiscid0 libportaudio2 python3-tk python3-venv
 
-1.  **VLC Media Player**:
-    Download and install VLC from [videolan.org](https://www.videolan.org/vlc/).
-    Ensure it is located at `/Applications/VLC.app`.
+git clone https://github.com/keiichiyasu/cdp.git
+cd cdp
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python main.py
+```
 
-2.  **Homebrew** (Package Manager):
-    If not installed, follow instructions at [brew.sh](https://brew.sh/).
+- 音声は HDMI から出ます。出ない場合は `sudo raspi-config` → System Options → Audio で HDMI を選択してください。
+- CD ドライブは `/dev/sr0` を想定しています(USB 接続の光学ドライブで確認)。
+- Pillow の ImageTk 読み込みでエラーが出る場合: `sudo apt-get install -y python3-pil.imagetk`
 
-3.  **Python 3**:
-    ```bash
-    brew install python
-    ```
+## macOS(開発用)
 
-4.  **libdiscid** (Required for DiscID calculation):
-    ```bash
-    brew install libdiscid
-    ```
+```bash
+brew install libdiscid python-tk@3.14
 
-## Setup
+git clone https://github.com/keiichiyasu/cdp.git
+cd cdp
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+.venv/bin/python main.py
+```
 
-1.  **Clone the repository** (if applicable) or navigate to the project directory.
-
-2.  **Create a Virtual Environment**:
-    It is recommended to use a virtual environment to manage dependencies.
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate
-    ```
-
-3.  **Install Python Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
-    *Note: If `requirements.txt` is missing, install the following manually:*
-    ```bash
-    pip install customtkinter musicbrainzngs python-vlc numpy pyobjc-framework-Cocoa discid requests pillow
-    ```
-
-## Configuration (Optional)
-
-*   **CD & DVD Settings**:
-    Go to **System Settings** -> **CDs & DVDs**.
-    Set "When you insert a music CD" to **"Ignore"** (or "Do Nothing").
-    This prevents the default Music.app from opening and conflicting with `cdp`.
-
-## Running the Application
-
-1.  Activate the virtual environment (if not already active):
-    ```bash
-    source .venv/bin/activate
-    ```
-
-2.  Run the main script:
-    ```bash
-    python main.py
-    ```
-
-3.  Insert a CD and enjoy!
-    Press `Esc` or click the `×` button to exit.
+- `python-tk@3.14` は Tkinter 用です。Homebrew の Python には既定で含まれないため別途必要です
+  (バージョン番号は使用する Python に合わせてください)。
+- PortAudio / libsndfile は pip の wheel に同梱されるため brew 不要です。
+- テスト実行: `.venv/bin/python -m pytest`
