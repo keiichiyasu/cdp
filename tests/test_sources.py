@@ -58,10 +58,37 @@ def test_cdparanoia_read_command_prefers_low_latency():
     assert argv[-2:] == ["3", "-"], "トラック指定と stdout 出力が末尾にない"
 
 
+def test_cdparanoia_waits_longer_for_first_data(monkeypatch):
+    """挿入直後のコールドスタートは待つ。
+
+    実機計測(Raspberry Pi 4 + USB ドライブ): トレイを閉じてから
+    ドライブが DISC_OK を返すまで 30 秒、そこから cdparanoia が最初の
+    データを返すまでさらに 20.5 秒かかった。「最初の音までの待ち」と
+    「再生中の音切れ」は別の現象なので、閾値を分ける。
+    """
+    monkeypatch.setenv("FAKE_CDPARANOIA_START_DELAY", "0.5")
+    src = CdparanoiaSource(device="/dev/null", binary=FAKE_BIN,
+                           stall_timeout=0.2, start_timeout=3.0)
+    data = b"".join(src.open(1))
+    src.close()
+    assert data == b"\x01\x02" * 4096
+
+
+def test_cdparanoia_mid_stream_gap_still_raises(monkeypatch):
+    """再生が始まったあとの中断は、短い閾値で素早くスキップする。"""
+    monkeypatch.setenv("FAKE_CDPARANOIA_MID_DELAY", "1.0")
+    src = CdparanoiaSource(device="/dev/null", binary=FAKE_BIN,
+                           stall_timeout=0.2, start_timeout=3.0)
+    with pytest.raises(SourceStallError):
+        b"".join(src.open(1))
+    src.close()
+
+
 def test_cdparanoia_stall_raises(monkeypatch):
+    """1 バイトも出ないまま start_timeout を超えたら諦める。"""
     monkeypatch.setenv("FAKE_CDPARANOIA_STALL", "1")
     src = CdparanoiaSource(device="/dev/null", binary=FAKE_BIN,
-                           stall_timeout=0.3)
+                           stall_timeout=0.3, start_timeout=0.3)
     with pytest.raises(SourceStallError):
         b"".join(src.open(1))
     src.close()

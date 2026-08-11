@@ -47,10 +47,17 @@ class CdparanoiaSource:
     """Linux: cdparanoia の子プロセスから raw PCM を読む。"""
 
     def __init__(self, device: str = "/dev/sr0", binary: str = "cdparanoia",
-                 stall_timeout: float = 10.0):
+                 stall_timeout: float = 10.0, start_timeout: float = 45.0):
+        """stall_timeout は再生中の音切れ、start_timeout は最初の音までの待ち。
+
+        両者は別の現象なので閾値を分ける。挿入直後のドライブは冷えており、
+        実機計測では最初のデータまで 20.5 秒かかった(Raspberry Pi 4 +
+        USB ドライブ)。ここを短く見積もると 1 曲目が必ずスキップされる。
+        """
         self.device = device
         self.binary = binary
         self.stall_timeout = stall_timeout
+        self.start_timeout = start_timeout
         self._proc: subprocess.Popen | None = None
 
     def list_tracks(self) -> list[TrackRef]:
@@ -83,14 +90,16 @@ class CdparanoiaSource:
 
     def _read_chunks(self, proc: subprocess.Popen) -> Iterator[bytes]:
         fd = proc.stdout.fileno()
+        timeout = self.start_timeout  # 最初の 1 チャンクだけ長く待つ
         while True:
-            ready, _, _ = select.select([fd], [], [], self.stall_timeout)
+            ready, _, _ = select.select([fd], [], [], timeout)
             if not ready:
                 raise SourceStallError(
-                    f"cdparanoia ({self.device}): {self.stall_timeout} 秒無応答")
+                    f"cdparanoia ({self.device}): {timeout} 秒無応答")
             data = os.read(fd, CHUNK_BYTES)
             if not data:
                 return
+            timeout = self.stall_timeout
             yield data
 
     def close(self) -> None:

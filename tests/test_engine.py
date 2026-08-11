@@ -127,6 +127,33 @@ def test_stalled_track_is_skipped():
     assert skipped == [1]
 
 
+def test_engine_waits_for_slow_first_chunk():
+    """コールドスタートのソースをエンジンが早々に諦めない。
+
+    エンジン側にも独立した stall 判定があるため、ソースだけ待てるように
+    しても、ここが短いと 1 曲目がスキップされる(実機で発生した不具合)。
+    """
+    events = []
+    stream = FakeStream()
+
+    class SlowStartSource(ScriptedSource):
+        def open(self, n):
+            self.opened.append(n)
+
+            def gen():
+                time.sleep(0.6)  # 最初のデータまで待たされる
+                yield from self.tracks[n]
+
+            return gen()
+
+    engine = PlaybackEngine(events.append, stream_factory=lambda: stream,
+                            stall_timeout=0.2, start_timeout=5.0)
+    engine.play(SlowStartSource({1: make_chunks(2)}), [1])
+    assert wait_until(lambda: finished(events))
+    assert not any(isinstance(e, TrackSkipped) for e in events)
+    assert stream.written == 2 * CHUNK_BYTES
+
+
 def test_stream_init_failure_posts_error():
     events = []
 

@@ -76,10 +76,16 @@ class _Prefetcher:
 
 class PlaybackEngine:
     def __init__(self, post_event, stream_factory=default_stream_factory,
-                 stall_timeout: float = 12.0):
+                 stall_timeout: float = 12.0, start_timeout: float = 60.0):
+        """stall_timeout は再生中の音切れ、start_timeout は最初の音までの待ち。
+
+        ソース側の同名の値に対する保険。ソースが待てるようにしても、ここが
+        短いままだとコールドスタート時に 1 曲目がスキップされる。
+        """
         self._post = post_event
         self._stream_factory = stream_factory
         self._stall_timeout = stall_timeout
+        self._start_timeout = start_timeout
         self._thread: threading.Thread | None = None
         self._stop_flag = threading.Event()
         self._paused = threading.Event()
@@ -176,6 +182,7 @@ class PlaybackEngine:
             self._post(TrackSkipped(track_no))
             return
         pre = _Prefetcher(chunks, PREFETCH_CHUNKS)
+        first = True
         try:
             while True:
                 if self._stop_flag.is_set():
@@ -186,9 +193,10 @@ class PlaybackEngine:
                 if self._paused.is_set():
                     time.sleep(0.05)
                     continue
-                chunk = self._next_chunk(pre, track_no)
+                chunk = self._next_chunk(pre, track_no, first)
                 if chunk is None:
                     return  # トラック終端 or 停止/ジャンプ要求
+                first = False
                 stream.write(chunk)
                 self._frames_played += len(chunk) // CD_BYTES_PER_FRAME
         except SourceStallError as e:
@@ -197,8 +205,10 @@ class PlaybackEngine:
         finally:
             pre.stop()
 
-    def _next_chunk(self, pre: _Prefetcher, track_no: int):
-        deadline = time.monotonic() + self._stall_timeout
+    def _next_chunk(self, pre: _Prefetcher, track_no: int,
+                    first: bool = False):
+        limit = self._start_timeout if first else self._stall_timeout
+        deadline = time.monotonic() + limit
         while True:
             if self._stop_flag.is_set():
                 return None
@@ -210,5 +220,4 @@ class PlaybackEngine:
             except queue.Empty:
                 if time.monotonic() > deadline:
                     raise SourceStallError(
-                        f"トラック {track_no}: 読み取りが "
-                        f"{self._stall_timeout} 秒停止")
+                        f"トラック {track_no}: 読み取りが {limit} 秒停止")

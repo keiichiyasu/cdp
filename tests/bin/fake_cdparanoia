@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""テスト用の cdparanoia もどき。-Q なら TOC を stderr へ、それ以外は PCM を stdout へ。"""
+"""テスト用の cdparanoia もどき。-Q なら TOC を stderr へ、それ以外は PCM を stdout へ。
+
+環境変数で遅延を再現する:
+  FAKE_CDPARANOIA_STALL       いつまでもデータを出さない
+  FAKE_CDPARANOIA_START_DELAY 最初のデータまでの待ち(コールドスタート再現、秒)
+  FAKE_CDPARANOIA_MID_DELAY   1 チャンク目と 2 チャンク目の間の中断(秒)
+"""
 import os
 import sys
 import time
@@ -13,5 +19,12 @@ if os.environ.get("FAKE_CDPARANOIA_STALL"):
     time.sleep(5)
     sys.exit(0)
 
+time.sleep(float(os.environ.get("FAKE_CDPARANOIA_START_DELAY", 0)))
 sys.stdout.buffer.write(b"\x01\x02" * 4096)
 sys.stdout.buffer.flush()
+
+mid = float(os.environ.get("FAKE_CDPARANOIA_MID_DELAY", 0))
+if mid:
+    time.sleep(mid)
+    sys.stdout.buffer.write(b"\x03\x04" * 4096)
+    sys.stdout.buffer.flush()
