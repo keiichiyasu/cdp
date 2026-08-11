@@ -44,6 +44,20 @@ def test_cdparanoia_open_reads_pcm():
     assert data == b"\x01\x02" * 4096
 
 
+def test_cdparanoia_read_command_prefers_low_latency():
+    """再生はリアルタイム優先なので paranoia 検証を無効化する。
+
+    実機(Raspberry Pi 4 + USB ドライブ)での計測:
+    paranoia 有効だと最初の音まで 2.9〜7.0 秒かかり、無効(-Z)なら 1.3 秒。
+    さらに傷ディスクでは、有効だとリトライが stall 検知に達してトラックごと
+    スキップされるが、無効なら軽微なノイズを出しつつ再生を継続できる。
+    """
+    argv = CdparanoiaSource(device="/dev/sr0").read_command(3)
+    assert "-Z" in argv, "paranoia を無効にしていない"
+    assert "-r" in argv, "raw リトルエンディアン PCM を要求していない"
+    assert argv[-2:] == ["3", "-"], "トラック指定と stdout 出力が末尾にない"
+
+
 def test_cdparanoia_stall_raises(monkeypatch):
     monkeypatch.setenv("FAKE_CDPARANOIA_STALL", "1")
     src = CdparanoiaSource(device="/dev/null", binary=FAKE_BIN,

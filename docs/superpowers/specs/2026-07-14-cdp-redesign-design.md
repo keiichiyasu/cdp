@@ -109,7 +109,8 @@ tests/                # pytest
 ### TrackSource(トラック供給)
 
 - インターフェイス: `open(track_no)` → PCM チャンクのイテレータ、`close()`
-- **Linux — CdparanoiaSource**: `cdparanoia -r <track_no> -` を子プロセス起動し stdout から raw PCM(44.1k/16bit/2ch/LE)を読む(`-r` = リトルエンディアン raw 出力)。トラック切替 = プロセス terminate + 再起動
+- **Linux — CdparanoiaSource**: `cdparanoia -q -r -Z -d <device> <track_no> -` を子プロセス起動し stdout から raw PCM(44.1k/16bit/2ch/LE)を読む(`-r` = リトルエンディアン raw 出力)。トラック切替 = プロセス terminate + 再起動
+  - `-Z`(paranoia 検証の無効化)は再生用途のための判断。実機計測(Raspberry Pi 4 + USB ドライブ)では、有効時の発音開始が 2.9〜7.0 秒とばらつくのに対し `-Z` では 1.3 秒で安定した。また傷ディスクでは、有効だとリトライが長引いて stall 検知(10 秒)に達しトラックごとスキップされるが、無効ならドライブ自身の誤り訂正に任せて再生を継続できる。多重読み・照合はアーカイブ用途の機能であり、リアルタイム再生では不要
 - **macOS — AiffFileSource**: マウントされた .aiff を soundfile で読み PCM を返す
 
 ### MetadataService

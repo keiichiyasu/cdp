@@ -62,11 +62,22 @@ class CdparanoiaSource:
             raise TrackSourceError("cdparanoia -Q でトラックを列挙できません")
         return tracks
 
+    def read_command(self, track_no: int) -> list[str]:
+        """トラック読み出しの argv。
+
+        -r: raw リトルエンディアン PCM を stdout へ
+        -Z: paranoia 検証を無効化。多重読み・照合はアーカイブ用途のもので、
+            再生では起動が数秒遅れるうえ、傷ディスクでリトライが長引いて
+            stall 検知(トラックスキップ)を誘発する。ドライブ自身の誤り
+            訂正に任せ、低遅延と再生継続を優先する。
+        """
+        return [self.binary, "-q", "-r", "-Z", "-d", self.device,
+                str(track_no), "-"]
+
     def open(self, track_no: int) -> Iterator[bytes]:
         self.close()
-        # -r: raw リトルエンディアン PCM を stdout へ
         self._proc = subprocess.Popen(
-            [self.binary, "-q", "-r", "-d", self.device, str(track_no), "-"],
+            self.read_command(track_no),
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         return self._read_chunks(self._proc)
 
