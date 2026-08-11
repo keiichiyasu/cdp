@@ -1,5 +1,12 @@
 # Raspberry Pi Porting Log
 
+> **注記(2026-07-14): これは v0.3 時代の記録です。手順は現在の cdp には当てはまりません。**
+>
+> v0.4.0 で VLC を廃止し、cdparanoia + PortAudio の自前 PCM パイプラインに移行しました。
+> ディスク検知も `/dev/cdrom` の存在確認から `/dev/sr0` への ioctl 方式に変わっています。
+> **現在のセットアップ手順は [INSTALL.md](INSTALL.md) を参照してください。**
+> 以下は当時の経緯を残すための履歴であり、そのまま実行しないでください。
+
 This document logs the steps taken to port the `cdp` macOS application to a Raspberry Pi (Linux) environment.
 
 ## 1. Initial Setup
