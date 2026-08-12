@@ -17,7 +17,15 @@ PREFETCH_CHUNKS = 86  # ≒ 8 秒分 (44100 * 8 / 4096)
 
 
 def default_stream_factory():
-    import sounddevice as sd
+    # import はここまで遅延させている(テストや macOS 開発時に PortAudio を
+    # 必須にしないため)。その代わり依存漏れが再生の瞬間まで表面化しないので、
+    # 失敗時は原因と対処をそのまま画面に出せる文言にしておく。
+    try:
+        import sounddevice as sd
+    except ImportError as e:
+        raise RuntimeError(
+            "sounddevice を読み込めません。venv の Python で起動してください "
+            "(.venv/bin/python main.py)") from e
     return sd.RawOutputStream(samplerate=CD_SAMPLE_RATE,
                               channels=CD_CHANNELS, dtype="int16")
 

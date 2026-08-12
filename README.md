@@ -24,8 +24,12 @@ CD を入れると自動で再生が始まり、アルバムアートを全画�
 ## 起動
 
 ```bash
-python main.py
+.venv/bin/python main.py
 ```
+
+**必ず venv の Python で起動してください。** `python main.py` だとシステムの
+Python が使われ、依存(sounddevice など)が見つかりません。この場合でも起動・
+CD 検知・アート表示までは動いてしまい、再生の瞬間だけ失敗します。
 
 終了は Esc キー。開発用の隠しキー: Space(一時停止/再開)、n / p(曲送り/戻し)、e(イジェクト)。
 

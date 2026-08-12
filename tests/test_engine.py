@@ -1,6 +1,9 @@
+import sys
 import time
 
-from src.audio.engine import PlaybackEngine
+import pytest
+
+from src.audio.engine import PlaybackEngine, default_stream_factory
 from src.audio.sources import CHUNK_BYTES, SourceStallError
 from src.core.events import (PlaybackError, PlaybackFinished, TrackChanged,
                              TrackRef, TrackSkipped)
@@ -152,6 +155,22 @@ def test_engine_waits_for_slow_first_chunk():
     assert wait_until(lambda: finished(events))
     assert not any(isinstance(e, TrackSkipped) for e in events)
     assert stream.written == 2 * CHUNK_BYTES
+
+
+def test_missing_sounddevice_names_the_likely_cause(monkeypatch):
+    """依存が無いときは「何をすればいいか」まで言う。
+
+    実機で、README の `python main.py` に従ってシステム Python で起動され、
+    再生の瞬間だけ ModuleNotFoundError になる事故が起きた。sounddevice の
+    import は再生開始まで遅延するため、起動・CD 検知・メタデータ表示までは
+    正常に見えてしまう。画面に出る文言だけで原因に辿り着けるようにする。
+    """
+    monkeypatch.setitem(sys.modules, "sounddevice", None)
+    with pytest.raises(RuntimeError) as exc:
+        default_stream_factory()
+    message = str(exc.value)
+    assert "sounddevice" in message
+    assert ".venv/bin/python" in message
 
 
 def test_stream_init_failure_posts_error():
